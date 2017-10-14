@@ -4,17 +4,16 @@
 #include "multicore-bsp/include/mcbsp.h"
 #include "main.h"
 
+// If build has not defined MAX_PRIMES
 #ifndef MAX_PRIMES
 #define MAX_PRIMES 1000000000
 #endif // !MAX_PRIMES
+#define MAX_PRIMES_ROOT sqrt(MAX_PRIMES)
 
+// If build has not defined CORES
 #ifndef CORES
 #define CORES 4
 #endif
-
-
-#define MAX_PRIMES_ROOT sqrt(MAX_PRIMES)
-
 
 int main( int argc, char ** argv ) {
     printf("cores: %d\n", bsp_nprocs());
@@ -22,74 +21,77 @@ int main( int argc, char ** argv ) {
     bsp_init( &spmd, argc, argv );	
     spmd();
 
-    printf("\nPress enter to continue...");
-    getchar();
+    printf("\nPress enter to continue...\n");
+    //getchar();
 
     return EXIT_SUCCESS;
 }
 
+// Calculate the range of {processor} given amount of {cores}
 void calculateRange(int pid, int cores, int * rangeStart, int * rangeEnd) {
 	(*rangeStart) = (MAX_PRIMES_ROOT + (pid * (MAX_PRIMES - MAX_PRIMES_ROOT) / cores));
 	(*rangeEnd) = (MAX_PRIMES_ROOT + ceil((pid + 1) * (MAX_PRIMES - MAX_PRIMES_ROOT) / cores));
 }
 
-void spmd() {
-	int cores = bsp_nprocs();	
-	cores = CORES;
+void spmd() {	
+	int cores = CORES;
 	bsp_begin(cores);		
+	double start = bsp_time();
 	// Get the first primes up to MAX_PRIMES_ROOT
 	Bitarray preprocess = preProcessingPrimes(MAX_PRIMES_ROOT);	
+
 	int pid = bsp_pid();
 
-	int rangeStart;// = MAX_PRIMES_ROOT + (pid * (MAX_PRIMES - MAX_PRIMES_ROOT) / cores);
-	int rangeEnd;// = MAX_PRIMES_ROOT + ceil((pid + 1) * (MAX_PRIMES - MAX_PRIMES_ROOT) / cores);
+	int rangeStart;
+	int rangeEnd;
 
 	calculateRange(pid, cores, &rangeStart, &rangeEnd);
 
 	printf("(%d) Range: [%d,%d]\n", pid, rangeStart, rangeEnd);
-	double start = bsp_time();
+	
 	Bitarray primesArray = crossOutPrimes(preprocess, rangeStart, rangeEnd);
 	printf("Time crossed out: %f\n", bsp_time() - start);		
 
 	// Start merging
 	int blockSize = bitarray_blocks(MAX_PRIMES);	
-	Bitarray vector = (Bitarray)malloc(blockSize * cores * (int)sizeof(BitBlock));
-	
-	bsp_push_reg(vector, blockSize * cores * (int)sizeof(BitBlock));
+	//Bitarray vector = (Bitarray)malloc(blockSize * cores * (int)sizeof(BitBlock));
+	//bsp_push_reg(vector, blockSize * cores * (int)sizeof(BitBlock));
+
+	Bitarray vector = (Bitarray)malloc(blockSize * (int)sizeof(BitBlock));
+	bsp_push_reg(vector, blockSize * (int)sizeof(BitBlock));
+
 	bsp_sync();	
-	for (int i = 0; i < cores; i++) {
-		bsp_put(i, primesArray, vector, pid * blockSize * sizeof(BitBlock), blockSize * sizeof(BitBlock));
+
+	// Send data to other processors		
+	// Calculate range of blocks
+	int leftBlock = rangeStart / BLOCK_SIZE;
+	int rightBlock = ceil(rangeEnd / (double)BLOCK_SIZE);
+	
+	//Get the relevant array
+	int* partial = &primesArray[leftBlock];
+
+	for (int i = 0; i < cores; i++) {		
+		bsp_put(i, partial, vector, leftBlock * sizeof(BitBlock), (rightBlock - leftBlock) * sizeof(BitBlock));				
 	}
 	bsp_sync();
 	
-	//Merge preprocessed primes
-	for (int i = 0; i < bitarray_blocks(MAX_PRIMES_ROOT); i++) {		
-		primesArray[i] |= preprocess[i];
+	//Merge preprocessed primes into the result
+	for (int i = 0; i < bitarray_blocks(MAX_PRIMES_ROOT); i++) {						
+		vector[i] |= preprocess[i];
 	}	
 
-	for (int core = 0; core < cores; core++) {
-		int rl, rr;
-		calculateRange(core, cores, &rl, &rr);
-		int leftBlock = rl / BLOCK_SIZE;
-		int rightBlock = rr / BLOCK_SIZE;
-
-		for (int i = leftBlock; i <= rightBlock && i < blockSize; i++) {
-			primesArray[i] |= vector[i + blockSize * core];
-		}
-
-	}
-
 	printf("Total time: %f\n", bsp_time() - start);
-	int amount = countPrimes(primesArray, MAX_PRIMES);
+	int amount = countPrimes(vector, MAX_PRIMES);
 	printf("Amount of primes: %d\n", amount);
 	
-	/*if (pid == 0) {
-		for (int i = 2; i < MAX_PRIMES; i++) {
-			if (bitarray_get(primesArray, i) == 0) {
-				printf("%d, ", i);
+	// Print out twin primes
+	if (pid == 0) {
+		for (int i = 2; i < MAX_PRIMES-2; i++) {
+			if (bitarray_get(vector, i) == 0 && bitarray_get(vector, i + 2) == 0 ) {
+				printf("%d:%d, ", i, i+2);
 			}
 		}
-	}*/
+	}
 
 	// Clean up memory	
 	free(primesArray);
@@ -120,6 +122,13 @@ Bitarray preProcessingPrimes(int upper) {
 }
 
 Bitarray crossOutPrimes(Bitarray bitarray, int rangeStart, int rangeEnd) {
+	//Make the ranges dividable by block_size for faster merging.
+	rangeStart = (rangeStart / BLOCK_SIZE)*BLOCK_SIZE - 1;
+	rangeEnd = rangeEnd /BLOCK_SIZE*BLOCK_SIZE + 1;
+	rangeStart = (rangeStart > 0) ? rangeStart : 0;
+	rangeStart = (rangeStart < MAX_PRIMES_ROOT) ? MAX_PRIMES_ROOT : rangeStart;
+	rangeEnd = (rangeEnd > MAX_PRIMES) ? rangeEnd : MAX_PRIMES;
+
 	int range = rangeEnd - rangeStart;
 	int blocks;
 	Bitarray blockPrimes = bitarray_create(&blocks, MAX_PRIMES);
