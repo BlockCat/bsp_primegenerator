@@ -79,9 +79,10 @@ void spmd() {
 
 	}
 
+	printf("Total time: %f\n", bsp_time() - start);
 	int amount = countPrimes(primesArray, MAX_PRIMES);
 	printf("Amount of primes: %d\n", amount);
-	printf("Total time: %f\n", bsp_time() - start);
+	
 	/*if (pid == 0) {
 		for (int i = 2; i < MAX_PRIMES; i++) {
 			if (bitarray_get(primesArray, i) == 0) {
