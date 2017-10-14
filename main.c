@@ -49,9 +49,7 @@ void spmd() {
 	printf("(%d) Range: [%d,%d]\n", pid, rangeStart, rangeEnd);
 	double start = bsp_time();
 	Bitarray primesArray = crossOutPrimes(preprocess, rangeStart, rangeEnd);
-	printf("Time crossed out: %f\n", bsp_time() - start);
-	// TODO: SYNC
-	bsp_sync();	
+	printf("Time crossed out: %f\n", bsp_time() - start);		
 
 	// Start merging
 	int blockSize = bitarray_blocks(MAX_PRIMES);	
@@ -83,7 +81,7 @@ void spmd() {
 
 	int amount = countPrimes(primesArray, MAX_PRIMES);
 	printf("Amount of primes: %d\n", amount);
-
+	printf("Total time: %f\n", bsp_time() - start);
 	/*if (pid == 0) {
 		for (int i = 2; i < MAX_PRIMES; i++) {
 			if (bitarray_get(primesArray, i) == 0) {
@@ -113,7 +111,7 @@ Bitarray preProcessingPrimes(int upper) {
 	// Cross out other primes, skip even numbers.
 	int sqrtUpper = ceil(sqrt(upper));
 	for (int prime = 3; prime < sqrtUpper; prime += 2) {			
-		for (int j = 2*prime; j <= upper; j += prime) {						
+		for (int j = prime*prime; j <= upper; j += prime+prime) {						
 			bitarray_set(&bitarray, j);
 		}
 	}	
