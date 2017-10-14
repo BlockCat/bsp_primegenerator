@@ -8,6 +8,10 @@
 #define MAX_PRIMES 1000000000
 #endif // !MAX_PRIMES
 
+#ifndef CORES
+#define CORES 4
+#endif
+
 
 #define MAX_PRIMES_ROOT sqrt(MAX_PRIMES)
 
@@ -31,7 +35,7 @@ void calculateRange(int pid, int cores, int * rangeStart, int * rangeEnd) {
 
 void spmd() {
 	int cores = bsp_nprocs();	
-	cores = 4;
+	cores = CORES;
 	bsp_begin(cores);		
 	// Get the first primes up to MAX_PRIMES_ROOT
 	Bitarray preprocess = preProcessingPrimes(MAX_PRIMES_ROOT);	
