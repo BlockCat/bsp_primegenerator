@@ -43,8 +43,7 @@ int main( int argc, char ** argv ) {
 	}
 
 	printf("Total primes: %d in seconds %ld,%ld\n", sum, (time / CLOCKS_PER_SEC),(time%CLOCKS_PER_SEC));
-	printf("Total costs: %d\n", cost);	
-	printf("%lu", sizeof(Bitarray));
+	printf("Total costs: %d\n", cost);		
     printf("\nPress enter to continue...");
     getchar();
 

@@ -4,7 +4,11 @@
 #include "multicore-bsp/include/mcbsp.h"
 #include "main.h"
 
+#ifndef MAX_PRIMES
 #define MAX_PRIMES 1000000000
+#endif // !MAX_PRIMES
+
+
 #define MAX_PRIMES_ROOT sqrt(MAX_PRIMES)
 
 
@@ -72,11 +76,6 @@ void spmd() {
 		}
 
 	}
-	/*for (int i = 0; i < blockSize; i++) {
-		for (int core = 0; core < cores; core++) {
-			primesArray[i] |= vector[i + blockSize * core];
-		}
-	}*/
 
 	int amount = countPrimes(primesArray, MAX_PRIMES);
 	printf("Amount of primes: %d\n", amount);
