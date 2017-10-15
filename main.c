@@ -1,7 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include "multicore-bsp/include/mcbsp.h"
 #include "main.h"
 
 // If build has not defined MAX_PRIMES
@@ -20,9 +16,6 @@ int main( int argc, char ** argv ) {
 
     bsp_init( &spmd, argc, argv );	
     spmd();
-
-    printf("\nPress enter to continue...\n");
-    //getchar();
 
     return EXIT_SUCCESS;
 }
@@ -93,6 +86,12 @@ void spmd() {
 		}
 	}
 
+	// Print out goldbach primes
+	if (pid == 0) {
+		struct GoldBach* bacharray = createGoldBachPairs(vector, MAX_PRIMES);
+		printGoldBachArray(bacharray, MAX_PRIMES);
+	}
+
 	// Clean up memory	
 	free(primesArray);
 	free(preprocess);
@@ -158,4 +157,28 @@ int countPrimes(Bitarray bitarray, int bound) {
 		}
 	}
 	return sum;
+}
+
+struct GoldBach* createGoldBachPairs(Bitarray primes, int upperBound) {
+	
+	struct GoldBach* bacharray = (struct GoldBach*)malloc(sizeof(struct GoldBach) * upperBound / 2);
+	bacharray[4 / 2] = (struct GoldBach){ 2, 2 };
+
+	for (int i = 2; i < upperBound / 2; i++) {
+		if (bitarray_get(primes, i)) continue;
+		for (int j = i; i + j < upperBound; j++) {
+			if (bitarray_get(primes, j)) continue;
+
+			//i and j are both primes,
+			bacharray[(i + j) / 2] = (struct GoldBach) { i, j };
+		}
+	}
+	return bacharray;
+}
+
+void printGoldBachArray(struct GoldBach* bacharray, int upperbound) {
+	for (int i = 2; i < upperbound / 2; i++) {
+		struct GoldBach gb = bacharray[i];
+		printf("%d: [%d,%d]\n", i * 2, gb.prime1, gb.prime2);
+	}
 }
